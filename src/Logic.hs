@@ -3,14 +3,20 @@
 module Logic where
 
 import           Extras
+import           Render
 import           Data.Array
 
 -- turn related
-takeTurn :: Board -> Cell -> Int -> Board
-takeTurn board cell ref = case fmap (checkVacant board) (ref2Coord ref) of
-  Just (True , idx) -> board // [(idx, cell)]
-  Just (False, _  ) -> board
-  Nothing           -> board
+takeTurn :: State -> IO State
+takeTurn (State board turn gamestate) = do
+  render board
+  ref <- fmap read getLine
+  return $ case fmap (checkVacant board) (ref2Coord ref) of
+    Just (True, idx) ->
+      State (board // [(idx, turn)]) (toggleCell turn) Playing
+    Just (False, _) -> State board turn gamestate
+    Nothing         -> State board turn gamestate
+
 
 checkVacant :: Board -> Coord -> (Bool, Coord)
 checkVacant board coord = ((board ! coord) == Empty, coord)
@@ -21,28 +27,28 @@ toggleCell O     = X
 toggleCell Empty = undefined
 
 -- win condition checking
-getRelevantIndices :: Board -> [[Cell]]
-getRelevantIndices board = cols ++ rows ++ [diag, diag']
+getRelevantIndices :: State -> [[Cell]]
+getRelevantIndices (State board _ _) = cols ++ rows ++ [diag, diag']
  where
   cols  = [ [ board ! (i, j) | i <- [1 .. 3] ] | j <- [1 .. 3] ]
   rows  = [ [ board ! (j, i) | i <- [1 .. 3] ] | j <- [1 .. 3] ]
   diag  = map (board !) (zip [1 .. 3] [1 .. 3])
   diag' = map (board !) (zip [1 .. 3] $ reverse [1 .. 3])
 
-whoWon :: [[Cell]] -> Maybe GameState
+whoWon :: [[Cell]] -> GameState
 whoWon rows = case check of
-  [True , False, False] -> Just Draw
-  [False, True , False] -> Just XWins
-  [False, False, True ] -> Just OWins
-  [False, False, False] -> Just Playing
-  _                     -> Nothing
+  [True , False, False] -> Draw
+  [False, True , False] -> XWins
+  [False, False, True ] -> OWins
+  [False, False, False] -> Playing
+  _                     -> error "Error in whoWon"
  where
   checker player = any (all (== player)) rows -- check if there is a row completed by a given player
   draw  = (all (not . (elem Empty)) rows)
   check = draw : map checker [X, O] -- check which player has completed a row
 
-checkBoard :: Board -> Maybe GameState
-checkBoard = whoWon . getRelevantIndices
+checkState :: State -> GameState
+checkState = whoWon . getRelevantIndices
 
 -- conversion from cell number to coordinates
 ref2Coord :: Int -> Maybe Coord

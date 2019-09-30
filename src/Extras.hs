@@ -16,3 +16,4 @@ type Coord = (Int, Int)
 -- Game state
 data GameState = Playing | Draw | XWins | OWins deriving (Show)
 
+data State = State Board Cell GameState
